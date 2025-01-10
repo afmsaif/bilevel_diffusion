@@ -11,7 +11,7 @@ pip install -r requirements.txt
 Start default setting training 
 ```bash
 python train_mnist.py
-python train_mnist_bilevel.py
+python train_mnist_bilevel.py --inner_loop 1 --gamma 1e-3 --lr 0.01 --lr_z 0.01 --lr_beta 0.01 --epochs 1 --truncation 2
 ```
 Feel free to tuning training parameters, type `python train_mnist.py -h` to get help message of arguments.
 
