@@ -1,8 +1,6 @@
 # MNIST Diffusion
 ![60 epochs training from scratch](assets/demo.gif "60 epochs training from scratch")
 
-Only simple depthwise convolutions, shorcuts and naive timestep embedding, there you have it! A fully functional denosing diffusion probabilistic model while keeps ultra light weight **4.55MB** (the checkpoint has 9.1MB but with ema model double the size).
-
 ## Training
 Install packages
 ```bash
