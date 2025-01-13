@@ -9,7 +9,6 @@
 
 import torch
 import torch.nn as nn
-from torch.nn.parallel import DataParallel
 from torchvision.datasets import MNIST
 from torchvision import transforms 
 from torchvision.utils import save_image
@@ -23,8 +22,10 @@ import math
 import argparse
 from copy import deepcopy
 from evaluation import FIDCalculator
+import csv
 
-from torch.nn.parallel.scatter_gather import scatter
+import sys
+from torchmetrics.image.fid import FrechetInceptionDistance
 
 # # cmg added for check autograde
 # torch.autograd.set_detect_anomaly(True)
@@ -153,8 +154,9 @@ def parse_args():
     parser.add_argument('--model_ema_decay',type = float,help = 'ema model decay',default=0.995)
     parser.add_argument('--tau_type',type = str,help = 'tau_type for DDIM skiiping',default='linear')
     parser.add_argument('--log_freq',type = int,help = 'training log message printing frequence',default=10)
-    parser.add_argument('--no_clip',action='store_true',help = 'set to normal sampling method without clip x_0 which could yield unstable samples')
+    # parser.add_argument('--no_clip',action='store_true',help = 'set to normal sampling method without clip x_0 which could yield unstable samples')
     parser.add_argument('--cpu',action='store_true',help = 'cpu training')
+    parser.add_argument('--device', type=str, default="cuda:0", help="Device to use.")
 
     parser.add_argument(
         '--scheduler',
@@ -167,37 +169,49 @@ def parse_args():
 
     return args
 
-# Wrap model in DataParallel if more than one GPU is available
-def prepare_model(model, device):
-    if torch.cuda.device_count() > 1:
-        print(f"Using {torch.cuda.device_count()} GPUs!", flush=True)
-        model = MyDataParallel(model, device_ids=[0, 1])
-    else:
-        print(torch.cuda.device_count(), flush=True)
-    return model.to(device)
-
 
 
 def main(args):
     # device = "cpu" if args.cpu else "cuda"
-    device = torch.device("cuda:3" if not args.cpu else "cpu")
+    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     # device = torch.device("mps" if not args.cpu else "cpu")
     train_dataloader, test_dataloader = create_mnist_dataloaders(batch_size=args.batch_size, image_size=28)
 
-    # initial  =  None
-    # initial  =  "cosine"
     initial = args.scheduler  
-    print("Using ", initial)
+    print("Using ", initial, " Scheduler")
 
     # Initialize model and learnable scheduler
     scheduler = LearnableScheduler(args.timesteps, initial, device)
 
-    # FID score
+    # differentiable FID score
     FID = FIDCalculator(device)
+    # for step, (image, _)in enumerate(test_dataloader):
+    #     # initializing FID
+    #     image = image.to(device)
+    #     FID.update_real(image)
+        
+    # using the torchmetrics FID
+    fid = FrechetInceptionDistance(normalize=True,reset_real_features=False).to(device)
+
+   
+
+    # initializing FID with real features
     for step, (image, _)in enumerate(test_dataloader):
-        # initializing FID
+
+        # # for trial
+        # if step>2:
+        #     continue
+
         image = image.to(device)
+
+
+        # differntiable FID needs input scale at [-1,1]
         FID.update_real(image)
+
+        # do this as it is MNIST, no need for CIFAR-10
+        image = image.repeat(1, 3, 1, 1)  # Repeat the channels
+        image = (image + 1) / 2  # Scale values from [-1, 1] to [0, 1]
+        fid.update(image, real=True)
 
 
     model = BilevelDiffusion(
@@ -219,35 +233,20 @@ def main(args):
     back_steps=args.backward_steps
     inner_loop = args.inner_loop
     
-    # model = DataParallel(model, device_ids = [0,1])
 
     # Unet for theta_y
-    if isinstance(model, nn.DataParallel):
-        theta_y = deepcopy(model.module.model)
-        # model_ema = ExponentialMovingAverage(model.module, decay=1.0 - alpha, device=device)
-        
-        # Optimizers
-        optimizer_theta_z = AdamW(model.module.model.parameters(), lr=args.lr_z)
-        if initial  =="cosine":
-            optimizer_scheduler = AdamW([scheduler.start_tensor, scheduler.end_tensor, scheduler.tau_tensor, scheduler.s_tensor], lr=args.lr_beta)
-        elif initial  =="sigmoid":
-            optimizer_scheduler = AdamW([scheduler.start_tensor, scheduler.end_tensor, scheduler.tau_tensor], lr=args.lr_beta)
-        else:
-            optimizer_scheduler = AdamW([scheduler._learnable_betas], lr=args.lr_beta)
-        optimizer_theta_y = AdamW(theta_y.parameters(), lr=args.lr)
+    theta_y = deepcopy(model.model)
+    # model_ema = ExponentialMovingAverage(model, decay=1.0 - alpha, device=device)
+    
+    # Optimizers
+    optimizer_theta_z = AdamW(model.model.parameters(), lr=args.lr_z)
+    if initial  =="cosine":
+        optimizer_scheduler = AdamW([scheduler.start_tensor, scheduler.end_tensor, scheduler.tau_tensor, scheduler.s_tensor], lr=args.lr_beta)
+    elif initial  =="sigmoid":
+        optimizer_scheduler = AdamW([scheduler.start_tensor, scheduler.end_tensor, scheduler.tau_tensor], lr=args.lr_beta)
     else:
-        theta_y = deepcopy(model.model)
-        # model_ema = ExponentialMovingAverage(model, decay=1.0 - alpha, device=device)
-        
-        # Optimizers
-        optimizer_theta_z = AdamW(model.model.parameters(), lr=args.lr_z)
-        if initial  =="cosine":
-            optimizer_scheduler = AdamW([scheduler.start_tensor, scheduler.end_tensor, scheduler.tau_tensor, scheduler.s_tensor], lr=args.lr_beta)
-        elif initial  =="sigmoid":
-            optimizer_scheduler = AdamW([scheduler.start_tensor, scheduler.end_tensor, scheduler.tau_tensor], lr=args.lr_beta)
-        else:
-            optimizer_scheduler = AdamW([scheduler._learnable_betas], lr=args.lr_beta)
-        optimizer_theta_y = AdamW(theta_y.parameters(), lr=args.lr)
+        optimizer_scheduler = AdamW([scheduler._learnable_betas], lr=args.lr_beta)
+    optimizer_theta_y = AdamW(theta_y.parameters(), lr=args.lr)
 
 
 
@@ -262,228 +261,229 @@ def main(args):
     global_steps = 0
     print("beta_value", torch.mean(scheduler.betas))
     
-    # device = "cuda:1"
+    output_file = "results/bilevel/gamma_{:.3f}/FID/FID_scores.csv".format(args.gamma)
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    header = ["Epoch", "Upper Loss", "FID Score"]
+    file_exists = os.path.isfile(output_file)
+    
+    with open(output_file, "w", newline="") as f:
+        writer = csv.writer(f)
+        # Write the header only if the file is new
+        writer.writerow(header)
 
-    for epoch in range(args.epochs):
-        #TODO: check: clear cache in pytorch
-        for step, (image, _) in enumerate(train_dataloader):
-            # print("In epoch ",epoch, "step", step)
-            model.train()
-            image = image.to(device)
-                       
-            
-            for _ in range(inner_loop):  # Inner optimization steps
+        for epoch in range(args.epochs):
+            for step, (image, _) in enumerate(train_dataloader):
+                if step>1:
+                    continue
+                
+                model.train()
+                image = image.to(device)
+                           
+                
+                for _ in range(inner_loop):  # Inner optimization steps
+                    # clear gradients
+                    optimizer_theta_y.zero_grad()
+                    optimizer_theta_z.zero_grad()
+                    optimizer_scheduler.zero_grad()
+    
+    
+                    # ===== Phase 1: Solve inner optimization for theta_y =====
+                    noise = torch.randn_like(image)
+                    t = torch.randint(0, args.timesteps, (image.size(0),)).to(device)
+                    x_t = model._forward_diffusion(image, t, noise)
+    
+                    pred_noise_y = theta_y(x_t, t)
+                    lower_loss_y = loss_fn(pred_noise_y, noise)
+                    grads = torch.autograd.grad(lower_loss_y, theta_y.parameters())
+    
+                    with torch.no_grad():
+                            for param, grad in zip(theta_y.parameters(), grads):
+                                param.grad = grad  # Example of manual gradient update
+    
+    
+                    optimizer_theta_y.step()
+                    scheduler_theta_y.step()
+                    
+                    
+                    # ===== Phase 2: Compute upper loss =====
+                    samples = model.sampling_DDIM(args.n_samples,device=device,tau_type = args.tau_type)
+    
+                    # clear FID cashe
+                    FID.clear_fake()
+                    FID.update_fake(samples)
+                    upper_loss = FID.compute()
+    
+                    
+                    # ===== Phase 3: Update theta_z using upper_loss/gamma + lower_loss_z =====
+                    noise = torch.randn_like(image)
+                    t = torch.randint(0, args.timesteps, (image.size(0),)).to(device) 
+                    if isinstance(model, nn.DataParallel):
+                        pred_noise_z = model(image, t, noise)
+                    else:
+                        pred_noise_z = model(image, t, noise)
+    
+                    
+                    lower_loss_z = loss_fn(pred_noise_z, noise)
+        
+                    # Combine upper_loss and lower_loss_z
+                    combined_loss = (upper_loss / args.gamma) + lower_loss_z
+                    
+                    if isinstance(model, nn.DataParallel):
+                        torch.autograd.grad(combined_loss, model.module.model.parameters())
+    
+                        with torch.no_grad():
+                            for param, grad in zip(model.model.parameters(), grads):
+                                param.grad = grad  # Example of manual gradient update
+                                if torch.isnan(grad).any():
+                                    print("There is nan in the grad")
+    
+                    else:
+                        grads = torch.autograd.grad(combined_loss, model.model.parameters())
+                        # Apply gradients manually
+                        with torch.no_grad():
+                            for param, grad in zip(model.model.parameters(), grads):
+                                param.grad = grad  # Example of manual gradient update
+    
+                    optimizer_theta_z.step()
+                    scheduler_theta_z.step()
+    
                 # clear gradients
-                optimizer_theta_y.zero_grad()
                 optimizer_theta_z.zero_grad()
+                optimizer_theta_y.zero_grad()
                 optimizer_scheduler.zero_grad()
-
-
-                # ===== Phase 1: Solve inner optimization for theta_y =====
+                
+                # ===== Compute gradient of scheduler at y_star
                 noise = torch.randn_like(image)
-                t = torch.randint(0, args.timesteps, (image.size(0),)).to(device)
+                t = torch.randint(0, args.timesteps, (image.size(0),)).to(device) 
                 if isinstance(model, nn.DataParallel):
                     x_t = model.module._forward_diffusion(image, t, noise)
                 else:
                     x_t = model._forward_diffusion(image, t, noise)
-
-                pred_noise_y = theta_y(x_t, t)
-                lower_loss_y = loss_fn(pred_noise_y, noise)
-                grads = torch.autograd.grad(lower_loss_y, theta_y.parameters())
-
-                # lower_loss_y.backward()
-
-                with torch.no_grad():
-                        for param, grad in zip(theta_y.parameters(), grads):
-                            param.grad = grad  # Example of manual gradient update
-
-
-                optimizer_theta_y.step()
-                scheduler_theta_y.step()
+    
+                pred_noise_y_star = theta_y(x_t, t)
+                lower_loss_y_star = loss_fn(pred_noise_y_star, noise)
                 
-                
-                # ===== Phase 2: Compute upper loss =====
-                if isinstance(model, nn.DataParallel):
-                    samples = model.module.sampling_DDIM(args.n_samples,clipped_reverse_diffusion=not args.no_clip,device=device,tau_type = args.tau_type)
-                else:
-                    samples = model.sampling_DDIM(args.n_samples,clipped_reverse_diffusion=not args.no_clip,device=device,tau_type = args.tau_type)
-                
-                # print("***********Samples***********")
-                # print(samples[0][0])
+                grad_lower_y_star = torch.autograd.grad(lower_loss_y_star, scheduler.parameters())  
+    
+    
+                # ===== Phase 4: Compute scheduler gradients =====
+                # clear gradients
+                optimizer_theta_z.zero_grad()
+                optimizer_theta_y.zero_grad()
+                optimizer_scheduler.zero_grad()
+    
+                # ===== Phase 5: Compute upper loss =====
+                samples = model.sampling_DDIM(args.n_samples,device=device,tau_type = args.tau_type, steps=back_steps)
+    
+    
                 FID.clear_fake()
                 FID.update_fake(samples)
                 upper_loss = FID.compute()
-                # print("upper_loss", upper_loss.requires_grad)
+    
+    
+                grad_upper = torch.autograd.grad(upper_loss, scheduler.parameters())                
+    
+    
+    
+                # ==== calculate gradient of z_star
+                # clear gradients
+                optimizer_theta_z.zero_grad()
+                optimizer_theta_y.zero_grad()
+                optimizer_scheduler.zero_grad()
                 
-                # ===== Phase 3: Update theta_z using upper_loss/gamma + lower_loss_z =====
                 noise = torch.randn_like(image)
                 t = torch.randint(0, args.timesteps, (image.size(0),)).to(device) 
-                if isinstance(model, nn.DataParallel):
-                    pred_noise_z = model(image, t, noise)
-                else:
-                    pred_noise_z = model(image, t, noise)
-
-                
-                lower_loss_z = loss_fn(pred_noise_z, noise)
     
-                # Combine upper_loss and lower_loss_z
-                combined_loss = (upper_loss / args.gamma) + lower_loss_z
-                # combined_loss = lower_loss_z
-                # combined_loss = upper_loss / args.gamma
-
                 if isinstance(model, nn.DataParallel):
-                    # combined_loss.backward()
-                    # print(scheduler.start_tensor.grad)
-                    # print(scheduler.end_tensor.grad)
-                    torch.autograd.grad(combined_loss, model.module.model.parameters())
-
-                    with torch.no_grad():
-                        for param, grad in zip(model.model.parameters(), grads):
-                            param.grad = grad  # Example of manual gradient update
-                            if torch.isnan(grad).any():
-                                print("There is nan in the grad")
-
+                    pred_noise_z_star = model(image, t, noise)
                 else:
-                    grads = torch.autograd.grad(combined_loss, model.model.parameters())
-                    # Apply gradients manually
-                    with torch.no_grad():
-                        for param, grad in zip(model.model.parameters(), grads):
-                            param.grad = grad  # Example of manual gradient update
-
-                optimizer_theta_z.step()
-                scheduler_theta_z.step()
-
-            # clear gradients
-            optimizer_theta_z.zero_grad()
-            optimizer_theta_y.zero_grad()
-            optimizer_scheduler.zero_grad()
+                    pred_noise_z_star = model(image, t, noise)
+    
+                
+                lower_loss_z_star = loss_fn(pred_noise_z_star, noise)
+    
+                grad_lower_z_star = torch.autograd.grad(lower_loss_z_star, scheduler.parameters())
+    
+                combined_grad = [
+                    g_upper/args.gamma + (g_z - g_y)
+                    for g_upper, g_z, g_y in zip(grad_upper, grad_lower_z_star, grad_lower_y_star)
+                ]
+    
+    
             
-            # ===== Compute gradient of scheduler at y_star
-            noise = torch.randn_like(image)
-            t = torch.randint(0, args.timesteps, (image.size(0),)).to(device) 
-            if isinstance(model, nn.DataParallel):
-                x_t = model.module._forward_diffusion(image, t, noise)
-            else:
-                x_t = model._forward_diffusion(image, t, noise)
-
-            pred_noise_y_star = theta_y(x_t, t)
-            lower_loss_y_star = loss_fn(pred_noise_y_star, noise)
+                for param, grad in zip(scheduler.parameters(), combined_grad):
+                    # print(param,grad)
+                    param.grad = grad
+    
+                optimizer_scheduler.step()
+                lr_scheduler_beta.step()
             
-            grad_lower_y_star = torch.autograd.grad(lower_loss_y_star, scheduler.parameters())  
-
-
-            # ===== Phase 4: Compute scheduler gradients =====
-            # clear gradients
-            optimizer_theta_z.zero_grad()
-            optimizer_theta_y.zero_grad()
-            optimizer_scheduler.zero_grad()
-
-            # ===== Phase 5: Compute upper loss =====
-            if isinstance(model, nn.DataParallel):
-                samples = model.module.sampling_DDIM(args.n_samples,clipped_reverse_diffusion=not args.no_clip,device=device,tau_type = args.tau_type, steps=back_steps)
-            else:
-                samples = model.sampling_DDIM(args.n_samples,clipped_reverse_diffusion=not args.no_clip,device=device,tau_type = args.tau_type, steps=back_steps)
-
-
+                if initial  == "cosine":
+                    scheduler.start_tensor.data.clamp_(0, 1)
+                    scheduler.end_tensor.data.clamp_(scheduler.start_tensor + 1e-10, torch.tensor(1.0, dtype=torch.float32).to(device))
+                    scheduler.tau_tensor.data.clamp_(0, 1e6)
+                    scheduler.s_tensor.data.clamp_(0,1)
+                if initial == "sigmoid":
+                    scheduler.end_tensor.data.clamp_(scheduler.start_tensor + 1e-10, torch.tensor(1e6, dtype=torch.float32).to(device))
+                    scheduler.tau_tensor.data.clamp_(0, 1e6)
+                else:
+                    # Clip beta to the range [0, 1]
+                    scheduler.betas.data.clamp_(0., 0.999)  # In-place clamping
+    
+    
+                # # Update EMA model
+                # if global_steps % args.model_ema_steps == 0:
+                #     model_ema.update_parameters(model)
+    
+                global_steps += 1
+                if step % args.log_freq == 0:
+                    if initial  == "cosine":
+                        print("start: ", scheduler.start_tensor.data)
+                        print("end: ", scheduler.end_tensor.data)
+                        print("tau: ", scheduler.tau_tensor.data)
+                        print("s: ", scheduler.s_tensor.data)
+                    elif initial  == "sigmoid":
+                        print("start: ", scheduler.start_tensor.data)
+                        print("end: ", scheduler.end_tensor.data)
+                        print("tau: ", scheduler.tau_tensor.data)
+                    else:
+                        print("max gradient, ", [max(g) for g in combined_grad])
+                        print("beta_value", torch.mean(scheduler.betas))
+    
+                    print(f"Epoch [{epoch+1}/{args.epochs}], Step [{step}/{len(train_dataloader)}], "
+                              f"Lower Loss Z: {lower_loss_z.item():.5f}, Upper Loss: {upper_loss.item():.5f}, Lower Loss y: {lower_loss_y.item():.5f}, Gamma: {args.gamma}")
+    
+    
+    
+            # Save checkpoint and generate samples
+            ckpt = {
+                "model": model.state_dict(),
+                # "model_ema": model_ema.state_dict()
+            }
+            os.makedirs("results", exist_ok=True)
+            torch.save(ckpt, f"results/bilevel/steps_{global_steps:08d}.pt")
+    
+            model.eval()
+            samples = model.sampling_DDIM_no_grad(args.n_samples, device=device, tau_type = args.tau_type)
             FID.clear_fake()
             FID.update_fake(samples)
             upper_loss = FID.compute()
-
-
-            grad_upper = torch.autograd.grad(upper_loss, scheduler.parameters())                
-
-
-
-            # ==== calculate gradient of z_star
-            # clear gradients
-            optimizer_theta_z.zero_grad()
-            optimizer_theta_y.zero_grad()
-            optimizer_scheduler.zero_grad()
+            save_image(samples, f"results/bilevel/steps_{global_steps:08d}.png", nrow=int(math.sqrt(args.n_samples)))
+            # print("Final FID for DDIM:", upper_loss)
             
-            noise = torch.randn_like(image)
-            t = torch.randint(0, args.timesteps, (image.size(0),)).to(device) 
-
-            if isinstance(model, nn.DataParallel):
-                pred_noise_z_star = model(image, t, noise)
-            else:
-                pred_noise_z_star = model(image, t, noise)
-
+            # do this as it is MNIST, no need for CIFAR-10
+            samples = samples.repeat(1, 3, 1, 1)  # Repeat the channels
+            samples= (samples + 1) / 2  # Scale values from [-1, 1] to [0, 1]
+            fid.update(samples, real=False)
+    
+            fid_score = fid.compute()
+    
+            print("Upper loss (FID differentiable): ", upper_loss, "torch FID: ", fid_score)
+    
+            # Write the iteration and scores to the CSV
+            writer.writerow([epoch, upper_loss, fid_score])
+            f.flush()
             
-            lower_loss_z_star = loss_fn(pred_noise_z_star, noise)
-
-            grad_lower_z_star = torch.autograd.grad(lower_loss_z_star, scheduler.parameters())
-
-            combined_grad = [
-                g_upper/args.gamma + (g_z - g_y)
-                for g_upper, g_z, g_y in zip(grad_upper, grad_lower_z_star, grad_lower_y_star)
-            ]
-
-
-        
-            for param, grad in zip(scheduler.parameters(), combined_grad):
-                # print(param,grad)
-                param.grad = grad
-
-            optimizer_scheduler.step()
-            lr_scheduler_beta.step()
-        
-            if initial  == "cosine":
-                scheduler.start_tensor.data.clamp_(0, 1)
-                scheduler.end_tensor.data.clamp_(scheduler.start_tensor + 1e-10, torch.tensor(1.0, dtype=torch.float32).to(device))
-                scheduler.tau_tensor.data.clamp_(0, 1e6)
-                scheduler.s_tensor.data.clamp_(0,1)
-            if initial == "sigmoid":
-                scheduler.end_tensor.data.clamp_(scheduler.start_tensor + 1e-10, torch.tensor(1e6, dtype=torch.float32).to(device))
-                scheduler.tau_tensor.data.clamp_(0, 1e6)
-            else:
-                # Clip beta to the range [0, 1]
-                scheduler.betas.data.clamp_(0., 0.999)  # In-place clamping
-
-
-            # # Update EMA model
-            # if global_steps % args.model_ema_steps == 0:
-            #     model_ema.update_parameters(model)
-
-            global_steps += 1
-            if step % args.log_freq == 0:
-                if initial  == "cosine":
-                    print("start: ", scheduler.start_tensor.data)
-                    print("end: ", scheduler.end_tensor.data)
-                    print("tau: ", scheduler.tau_tensor.data)
-                    print("s: ", scheduler.s_tensor.data)
-                elif initial  == "sigmoid":
-                    print("start: ", scheduler.start_tensor.data)
-                    print("end: ", scheduler.end_tensor.data)
-                    print("tau: ", scheduler.tau_tensor.data)
-                else:
-                    print("max gradient, ", [max(g) for g in combined_grad])
-                    print("beta_value", torch.mean(scheduler.betas))
-
-                print(f"Epoch [{epoch+1}/{args.epochs}], Step [{step}/{len(train_dataloader)}], "
-                          f"Lower Loss Z: {lower_loss_z.item():.5f}, Upper Loss: {upper_loss.item():.5f}, Lower Loss y: {lower_loss_y.item():.5f}, Gamma: {args.gamma}")
-
-
-
-        # Save checkpoint and generate samples
-        ckpt = {
-            "model": model.state_dict(),
-            # "model_ema": model_ema.state_dict()
-        }
-        os.makedirs("results", exist_ok=True)
-        torch.save(ckpt, f"results/bilevel/steps_{global_steps:08d}.pt")
-
-        model.eval()
-        samples = model.sampling_no_grad(args.n_samples,clipped_reverse_diffusion=not args.no_clip,device=device)
-        FID.clear_fake()
-        FID.update_fake(samples)
-        save_image(samples, f"results/bilevel/steps_{global_steps:08d}.png", nrow=int(math.sqrt(args.n_samples)))
-        print("Final FID:", FID.compute())
-
-        samples = model.sampling_DDIM_no_grad(args.n_samples,clipped_reverse_diffusion=not args.no_clip,device=device)
-        FID.clear_fake()
-        FID.update_fake(samples)
-        save_image(samples, f"results/bilevel/steps_{global_steps:08d}.png", nrow=int(math.sqrt(args.n_samples)))
-        print("Final FID for DDIM:", FID.compute())
 
 if __name__ == "__main__":
     args = parse_args()
