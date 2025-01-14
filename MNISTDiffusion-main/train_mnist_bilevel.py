@@ -273,8 +273,8 @@ def main(args):
 
         for epoch in range(args.epochs):
             for step, (image, _) in enumerate(train_dataloader):
-                if step>1:
-                    continue
+                # if step>1:
+                #     continue
                 
                 model.train()
                 image = image.to(device)
