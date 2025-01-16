@@ -16,6 +16,7 @@ import csv
 import sys
 from evaluation import FIDCalculator
 from torchmetrics.image.fid import FrechetInceptionDistance
+from torchmetrics.image.inception import InceptionScore
 
 def create_mnist_dataloaders(batch_size,image_size=28,num_workers=4):   
     
@@ -53,7 +54,7 @@ def parse_args():
     parser.add_argument('--end',type = float,help = 'end of noise scheduler',default=1)
     parser.add_argument('--epsilon',type = float,help = 'epsilon for noise scheduler',default=0.008)
     parser.add_argument('--tau',type = float,help = 'tau for noise scheduler',default=1)
-    parser.add_argument('--tau_type',type = str,help = 'tau_type for DDIM skiiping',default='linear')
+    parser.add_argument('--tau_type',type = str,help = 'tau_type for DDIM skipping',default='linear')
     parser.add_argument('--model_ema_steps',type = int,help = 'ema model evaluation interval',default=10)
     parser.add_argument('--model_ema_decay',type = float,help = 'ema model decay',default=0.995)
     parser.add_argument('--log_freq',type = int,help = 'training log message printing frequence',default=10)
@@ -94,6 +95,8 @@ def main(args):
 
     # using the torchmetrics FID
     fid = FrechetInceptionDistance(normalize=True,reset_real_features=False).to(device)
+    
+    inception = InceptionScore(normalize=True).to(device)
 
    
 
@@ -127,9 +130,9 @@ def main(args):
         model.load_state_dict(ckpt["model"])
         
         
-    output_file = "results/DDIM/tau_{:.3f}_start_{:.3f}_end_{:.3f}_s_{:.3f}/FID/FID_scores.csv".format(args.tau,args.start,args.end,args.epsilon)
+    output_file = "results/DDIM/tau_{:.3f}_start_{:.3f}_end_{:.3f}_s_{:.3f}/output/scores.csv".format(args.tau,args.start,args.end,args.epsilon)
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
-    header = ["Epoch", "Upper Loss", "FID Score"]
+    header = ["Epoch", "Upper Loss", "FID Score", "IS Score"]
     file_exists = os.path.isfile(output_file)
     with open(output_file, "w", newline="") as f:
         writer = csv.writer(f)
@@ -170,10 +173,12 @@ def main(args):
             #clear the previous fake feature first
             FID.clear_fake()
             fid.reset()
+            inception.reset()
             
             # differntiable FID needs input scale at [-1,1]
             FID.update_fake(samples)
             upper_loss = FID.compute()
+            
     
             # do this as it is MNIST, no need for CIFAR-10
             samples = samples.repeat(1, 3, 1, 1)  # Repeat the channels
@@ -181,11 +186,15 @@ def main(args):
             fid.update(samples, real=False)
     
             fid_score = fid.compute()
+            
+            inception.update(samples)
+            
+            inception_score, std_inception_score = inception.compute()
     
-            print("Upper loss (FID differentiable): ", upper_loss, "torch FID: ", fid_score)
+            print("Upper loss (FID differentiable): ", upper_loss, "torch FID: ", fid_score, "IS: ", inception_score)
     
             # Write the iteration and scores to the CSV
-            writer.writerow([i, upper_loss, fid_score])
+            writer.writerow([i, upper_loss, fid_score, inception_score])
 
 
 if __name__=="__main__":
