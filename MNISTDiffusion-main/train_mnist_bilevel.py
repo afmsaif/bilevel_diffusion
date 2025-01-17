@@ -89,7 +89,7 @@ class LearnableScheduler(nn.Module):
         # A gamma function based on sigmoid function.
         steps=torch.linspace(0,timesteps,steps=timesteps+1,dtype=torch.float32,device = self.device) 
         steps = steps * (end - start) + start
-        f_t = torch.sigmoid((steps / timesteps)/tau+s)
+        f_t = torch.sigmoid(((timesteps-steps) / timesteps)/tau+s)
 
         betas=torch.clip(1.0-f_t[1:]/f_t[:timesteps],0.0,0.999)
 
