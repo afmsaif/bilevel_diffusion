@@ -5,14 +5,19 @@ from unet import Unet
 from tqdm import tqdm
 
 class MNISTDiffusion(nn.Module):
-    def __init__(self,image_size,in_channels,time_embedding_dim=256,timesteps=1000,base_dim=32,dim_mults= [1, 2, 4, 8],back_steps=50,start=0, end=1, tau=1, epsilon=0.008):
+    def __init__(self,image_size,in_channels,time_embedding_dim=256,timesteps=1000,base_dim=32,dim_mults= [1, 2, 4, 8],back_steps=50,start=0, end=1, tau=1, epsilon=0.008, scheduler_type='cosine'):
         super().__init__()
         self.timesteps=timesteps
         self.back_steps=back_steps
         self.in_channels=in_channels
         self.image_size=image_size
 
-        betas=self._cosine_variance_schedule(start,end,timesteps,tau,epsilon)
+        if scheduler_type=='cosine':            
+            betas=self._cosine_variance_schedule(start,end,timesteps,tau,epsilon)
+        elif scheduler_type=='sigmoid':
+            betas=self._sigmoid_variance_schedule(start,end,timesteps,tau)
+        else:
+            raise ValueError("Invalid scheduler_type. Choose 'cosine' or 'sigmoid'.")
 
         alphas=1.-betas
         alphas_cumprod=torch.cumprod(alphas,dim=-1)
@@ -80,6 +85,17 @@ class MNISTDiffusion(nn.Module):
         f_t = cos_value ** (2 * tau)
 
         betas=torch.clip(1.0-f_t[1:]/f_t[:timesteps],0.0,0.999)
+        return betas
+    
+    
+    def _sigmoid_variance_schedule(self, start=-3, end=3, timesteps=1000, tau=1.0, epsilon=0):
+        # A gamma function based on sigmoid function.
+        steps=torch.linspace(0,timesteps,steps=timesteps+1,dtype=torch.float32) 
+        steps = steps * (end - start) + start
+        f_t = torch.sigmoid(((timesteps-steps) / timesteps+epsilon)/tau)
+        # f_t = torch.sigmoid((steps / timesteps+epsilon)/tau)* (end - start) + start
+        betas=torch.clip(1.0-f_t[1:]/f_t[:timesteps],0.0,0.999)
+
         return betas
 
     def _forward_diffusion(self,x_0,t,noise):

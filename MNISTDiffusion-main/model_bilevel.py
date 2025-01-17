@@ -50,11 +50,10 @@ class BilevelDiffusion(nn.Module):
 
 
         return pred_noise
-    
+
 
     def _forward_diffusion(self,x_0,t,noise):
         assert x_0.shape==noise.shape
-
         #q(x_{t}|x_{t-1})
         return self.sqrt_alphas_cumprod.gather(-1,t).reshape(x_0.shape[0],1,1,1)*x_0+ \
                 self.sqrt_one_minus_alphas_cumprod.gather(-1,t).reshape(x_0.shape[0],1,1,1)*noise
@@ -126,9 +125,8 @@ class BilevelDiffusion(nn.Module):
         return prev_sample
 
     @torch.no_grad()
-    def sampling_DDIM_no_grad(self,n_samples,device="cuda", tau_type= "None", steps=None):
-
-        steps = steps if steps is not None else self.back_steps
+    def sampling_DDIM_no_grad(self,n_samples,clipped_reverse_diffusion=True,device="cuda", tau_type= "None", steps=None):
+        steps = steps if steps is not None else self.timesteps
 
         if steps is not None and tau_type in ["linear", "quadratic"]:
             if tau_type == "linear":
@@ -151,21 +149,21 @@ class BilevelDiffusion(nn.Module):
                 t_indices = i  # Default to standard timesteps
                 t_indices_prev = i-1
 
-            noise=torch.randn_like(x_t).to(device)
+
             t = torch.tensor([t_indices for _ in range(n_samples)]).to(device)
             t_prev = torch.tensor([t_indices_prev for _ in range(n_samples)]).to(device)
 
-            x_t=self._reverse_diffusion_DDIM(x_t,t,t_prev,noise)
-            
+            x_t=self._reverse_diffusion_DDIM_no_grad(x_t,t,t_prev)
 
         # x_t=(x_t+1.)/2. #[-1,1] to [0,1]
 
         x_t = x_t.clamp(-1., 1.)
 
         return x_t
+    
 
     @torch.no_grad()
-    def _reverse_diffusion_DDIM_no_grad(self,x_t,t,t_prev,noise): 
+    def _reverse_diffusion_DDIM_no_grad(self,x_t,t,t_prev): 
         '''
         p(x_{0}|x_{t}),q(x_{t-1}|x_{0},x_{t})->mean,std
 
@@ -187,3 +185,4 @@ class BilevelDiffusion(nn.Module):
         prev_sample = torch.sqrt(alpha_t_cumprod_prev) * x_0_pred + pred_sample_direction
 
         return prev_sample
+    

@@ -12,6 +12,7 @@ import os
 import math
 import argparse
 import csv
+import time
 
 import sys
 from evaluation import FIDCalculator
@@ -55,6 +56,7 @@ def parse_args():
     parser.add_argument('--epsilon',type = float,help = 'epsilon for noise scheduler',default=0.008)
     parser.add_argument('--tau',type = float,help = 'tau for noise scheduler',default=1)
     parser.add_argument('--tau_type',type = str,help = 'tau_type for DDIM skipping',default='linear')
+    parser.add_argument('--scheduler_type',type = str,help = 'parameterization of noise scheduler',default='cosine')
     parser.add_argument('--model_ema_steps',type = int,help = 'ema model evaluation interval',default=10)
     parser.add_argument('--model_ema_decay',type = float,help = 'ema model decay',default=0.995)
     parser.add_argument('--log_freq',type = int,help = 'training log message printing frequence',default=10)
@@ -77,6 +79,7 @@ def main(args):
                 in_channels=1,
                 base_dim=args.model_base_dim,
                 dim_mults=[2,4],
+                scheduler_type=args.scheduler_type,
                 start=args.start,
                 end=args.end,
                 epsilon=args.epsilon,
@@ -130,10 +133,15 @@ def main(args):
         model.load_state_dict(ckpt["model"])
         
         
-    output_file = "results/DDIM/tau_{:.3f}_start_{:.3f}_end_{:.3f}_s_{:.3f}/output/scores.csv".format(args.tau,args.start,args.end,args.epsilon)
+    scheduler_type = getattr(args, 'scheduler_type', 'default_value')
+        
+        
+    output_file = "results/DDIM/{}/tau_{:.3f}_start_{:.3f}_end_{:.3f}_s_{:.3f}/output/scores.csv".format(scheduler_type,args.tau,args.start,args.end,args.epsilon)
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     header = ["Epoch", "Upper Loss", "FID Score", "IS Score"]
     file_exists = os.path.isfile(output_file)
+    
+    start_time = time.time()
     with open(output_file, "w", newline="") as f:
         writer = csv.writer(f)
         # Write the header only if the file is new
@@ -162,13 +170,13 @@ def main(args):
                     "model_ema":model_ema.state_dict()}
     
             # os.makedirs("results",exist_ok=True)
-            os.makedirs("results/DDIM/tau_{:.3f}_start_{:.3f}_end_{:.3f}_s_{:.3f}",exist_ok=True)
-            torch.save(ckpt,"results/DDIM/tau_{:.3f}_start_{:.3f}_end_{:.3f}_s_{:.3f}/steps_{:0>8}.pt".format(args.tau,args.start,args.end,args.epsilon,global_steps))
+            os.makedirs("results/DDIM/{}/tau_{:.3f}_start_{:.3f}_end_{:.3f}_s_{:.3f}",exist_ok=True)
+            torch.save(ckpt,"results/DDIM/{}/tau_{:.3f}_start_{:.3f}_end_{:.3f}_s_{:.3f}/steps_{:0>8}.pt".format(scheduler_type,args.tau,args.start,args.end,args.epsilon,global_steps))
             # torch.save(ckpt,"results/DDIM/steps_{:0>8}_tau_{}_start_{}_end_{}_s_{}.pt".format(global_steps,args.tau,args.start,args.end,args.epsilon))
     
             model_ema.eval()
             samples=model_ema.module.sampling_DDIM(args.n_samples,device=device,tau_type = args.tau_type)
-            save_image(samples,"results/DDIM/tau_{:.3f}_start_{:.3f}_end_{:.3f}_s_{:.3f}/steps_{:0>8}.png".format(args.tau,args.start,args.end,args.epsilon,global_steps),nrow=int(math.sqrt(args.n_samples)))
+            save_image(samples,"results/DDIM/{}/tau_{:.3f}_start_{:.3f}_end_{:.3f}_s_{:.3f}/steps_{:0>8}.png".format(scheduler_type,args.tau,args.start,args.end,args.epsilon,global_steps),nrow=int(math.sqrt(args.n_samples)))
     
             #clear the previous fake feature first
             FID.clear_fake()
@@ -195,7 +203,14 @@ def main(args):
     
             # Write the iteration and scores to the CSV
             writer.writerow([i, upper_loss, fid_score, inception_score])
-
+            # f.flush()
+    
+        end_time = time.time()
+        execution_time = end_time - start_time
+        print("Time: ", execution_time)
+    
+        writer = csv.writer(f)
+        writer.writerow(["Time", execution_time, "", ""])
 
 if __name__=="__main__":
     args=parse_args()
