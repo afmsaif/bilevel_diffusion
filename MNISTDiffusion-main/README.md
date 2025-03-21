@@ -17,7 +17,7 @@ For train_mnist_grid_search.py, tune hyperparameter tau first and then start, en
 For train_mnist_bilevel.py, tune gamma and learning rates for beta, and initial epoch (without learning hyperparmater) and epochs. 
 
 ## Reference
-A neat blog explains how diffusion model works(must read!): https://lilianweng.github.io/posts/2021-07-11-diffusion-models/
+A neat blog explains how diffusion model works: https://lilianweng.github.io/posts/2021-07-11-diffusion-models/
 
 The Denoising Diffusion Probabilistic Models paper: https://arxiv.org/pdf/2006.11239.pdf 
 
