@@ -87,7 +87,9 @@ class LearnableScheduler(nn.Module):
         f_t = cos_value ** (2 * tau)
 
         betas=torch.clip(1.0-f_t[1:]/f_t[:timesteps],0.0,0.999)
+        
         return betas
+    
 
     def _sigmoid_schedule(self, start=-3, end=3, timesteps=1000, tau=1.0, s=0):
         # A gamma function based on sigmoid function.
@@ -197,71 +199,6 @@ def save_args(args, filepath):
         json.dump(vars(args), f, indent=4)
 
 
-# def zeroth_order_gradient(params, model_ema, delta, fid, ZO_type, loss_pre=None):
-
-#     # Determine the parameters to optimize
-#     if params == 'scheduler':
-#         param_group = list(model_ema.shadow_model.scheduler.parameters())
-#     elif params == 'model':
-#         param_group = list(model_ema.shadow_model.model.parameters())
-#     else:
-#         raise ValueError("Invalid params argument. Must be 'scheduler' or 'model'.")
-
-#     # Create a copy of the model for zeroth-order perturbations
-#     model_ZO = deepcopy(model_ema)
-    
-#     if params == 'scheduler':
-#         ZO_param = list(model_ZO.shadow_model.scheduler.parameters())
-#     elif params == 'model':
-#         ZO_param = list(model_ZO.shadow_model.model.parameters())
-#     else:
-#         raise ValueError("Invalid params argument. Must be 'scheduler' or 'model'.")
-
-#     # Generate perturbations for all parameters
-#     perturbation = [torch.randn_like(param) for param in param_group]
-
-    
-#     # ===== Perturbation 1 =====
-#     perturbed_params = [param + noise*delta for param, noise in zip(param_group, perturbation)]
-#     for p, pert in zip(ZO_param, perturbed_params):
-#         p.data.copy_(pert.view_as(p))  # Apply forward perturbation
-    
-#     samples = model_ZO.shadow_model.sampling_DDIM(args.n_samples, device=args.device, tau_type=args.tau_type)
-#     samples = samples.repeat(1, 3, 1, 1)  # Adjust for MNIST or other datasets
-#     samples = (samples + 1) / 2  # Scale to [0, 1]
-    
-#     fid.reset()
-#     fid.update(samples, real=False)
-#     loss_fwd = fid.compute()
-
-#     # ===== Perturbation 2 =====
-    
-#     if ZO_type == 'two':        
-#         perturbed_params = [param - noise*delta for param, noise in zip(param_group, perturbation)]
-#         for p, pert in zip(ZO_param, perturbed_params):
-#             p.data.copy_(pert.view_as(p))  # Apply backward perturbation
-        
-#         samples = model_ZO.shadow_model.sampling_DDIM(args.n_samples, device=args.device, tau_type=args.tau_type)
-#         samples = samples.repeat(1, 3, 1, 1)  # Adjust for MNIST or other datasets
-#         samples = (samples + 1) / 2  # Scale to [0, 1]
-        
-#         fid.reset()
-#         fid.update(samples, real=False)
-#         loss_bwd = fid.compute()
-#     elif ZO_type == 'one':
-#         loss_bwd = loss_pre 
-#     else:
-#         raise ValueError("ZO_type must be 'two' or 'one'.")
-
-#     # ===== Compute Gradients for All Parameters =====
-#     for param, noise in zip(param_group, perturbation):
-#         # Zeroth-order gradient: scaled by parameter dimension
-#         param.grad = ((loss_fwd - loss_bwd) / (2 * delta)) * noise
-
-#     if ZO_type == 'two':
-#         return param_group
-#     elif ZO_type == 'one':
-#         return param_group, loss_fwd
 
 def zeroth_order_gradient(params, model_ema, delta, fid, ZO_type, loss_pre=None):
     # Determine the parameters to optimize
@@ -385,8 +322,6 @@ def main(args):
     # Initialize model and learnable scheduler
     scheduler = LearnableScheduler(args.timesteps, initial, device,args.initial_start,args.initial_end,args.initial_tau,args.initial_epsilon)
 
-    # # differentiable FID score
-    # FID = FIDCalculator(device)
         
     # using the torchmetrics FID
     fid = FrechetInceptionDistance(normalize=True,reset_real_features=False).to(device)
@@ -474,7 +409,7 @@ def main(args):
     # Parameters for the scheduler
     start_gamma = args.gamma
     end_gamma = args.gamma_end
-    total_steps = (args.epochs-args.initial_epoch)*len(train_dataloader)
+    total_steps = (args.epochs-args.initial_epoch)*len(train_dataloader)*args.inner_loop_z
     
     # Create a linear scheduler
     linear_scheduler = GammaScheduler(start_value=start_gamma, end_value=end_gamma, global_steps=total_steps, mode="linear")
@@ -488,7 +423,7 @@ def main(args):
     
     scheduler_type = getattr(args, 'scheduler', 'default_value')
     
-    output_file = "results/bilevel/gamma_{}_gamma_end_{}_y_loop_{}_z_loop_{}_initial_epoch_{}_epoch_{}_lr_beta_{}/{}/output/scores.csv".format(
+    output_file = "results/bilevel/gamma_{}_gamma_end_{}_y_loop_{}_z_loop_{}_initial_epoch_{}_epoch_{}_lr_beta_{}_lr_{}_lr_z_{}/{}/output/scores.csv".format(
         args.gamma,
         args.gamma_end,
         args.inner_loop,
@@ -496,6 +431,8 @@ def main(args):
         args.initial_epoch,
         args.epochs,
         args.lr_beta,
+        args.lr,
+        args.lr_z,
         scheduler_type
     )
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
@@ -503,7 +440,7 @@ def main(args):
     file_exists = os.path.isfile(output_file)
     
     # Save arguments to a file
-    directory = "results/bilevel/gamma_{}_gamma_end_{}_y_loop_{}_z_loop_{}_initial_epoch_{}_epoch_{}_lr_beta_{}/{}/output/".format(
+    directory = "results/bilevel/gamma_{}_gamma_end_{}_y_loop_{}_z_loop_{}_initial_epoch_{}_epoch_{}_lr_beta_{}_lr_{}_lr_z_{}/{}/output/".format(
         args.gamma,
         args.gamma_end,
         args.inner_loop,
@@ -511,6 +448,8 @@ def main(args):
         args.initial_epoch,
         args.epochs,
         args.lr_beta,
+        args.lr,
+        args.lr_z,
         scheduler_type
     )
     
@@ -524,6 +463,8 @@ def main(args):
     loss_pre_model = 0
     loss_pre_scheduler = 0
     
+    total_step_gamma = 0
+    
     with open(output_file, "w", newline="") as f:
         writer = csv.writer(f)
         # Write the header only if the file is new
@@ -533,15 +474,14 @@ def main(args):
 
         for epoch in range(args.epochs):
             for step, (image, _) in enumerate(train_dataloader):
-                # if step>1:
-                #     continue
+
                 
                 model.train()
                 model_ema.shadow_model.eval()
                 
                 image = image.to(device)
                 
-                gamma_linear = linear_scheduler.get_gamma(global_steps)
+                gamma_linear = linear_scheduler.get_gamma(total_step_gamma)
                 
                 
                 for _ in range(inner_loop):  # Inner optimization steps
@@ -571,14 +511,12 @@ def main(args):
                     
                 global_steps += 1
                 if epoch>= args.initial_epoch:
+                    total_step_gamma += 1
                     # clear gradients
                     optimizer_theta_z.zero_grad()
                     optimizer_theta_y.zero_grad()
                     optimizer_scheduler.zero_grad()
                     
-                    # if flag == 0:
-                    #     model.model = deepcopy(theta_y)
-                    #     flag = 1
                     
                     model.model = deepcopy(theta_y)
                     
@@ -592,13 +530,10 @@ def main(args):
                         # ===== Phase 2: Compute upper loss =====
                         # samples = model.sampling_DDIM(args.n_samples,device=device,tau_type = args.tau_type)
                         samples = model_ema.shadow_model.sampling_DDIM_no_grad(args.n_samples,device=device,tau_type = args.tau_type)
-                        # clear FID cashe
-                        # FID.clear_fake()
+
                         fid.reset()
                         inception.reset()
                         
-                        # FID.update_fake(samples)
-                        # upper_loss = FID.compute()
                         
                         # do this as it is MNIST, no need for CIFAR-10
                         samples = samples.repeat(1, 3, 1, 1)  # Repeat the channels
@@ -636,13 +571,6 @@ def main(args):
                             for param, grad_u, grad_l in zip(model.model.parameters(), param_group,grad_lower):
                                 param.grad = grad_u.grad / gamma_linear + grad_l  # Example of manual gradient update
 
-                        # combined_loss = (upper_loss / args.gamma) + lower_loss_z
-                        
-                        # grads = torch.autograd.grad(combined_loss, model.model.parameters())
-                        # # Apply gradients manually
-                        # with torch.no_grad():
-                        #     for param, grad in zip(model.model.parameters(), grads):
-                        #         param.grad = grad  # Example of manual gradient update
         
                         optimizer_theta_z.step()
                         scheduler_theta_z.step()
@@ -672,8 +600,7 @@ def main(args):
                     # FID.clear_fake()
                     fid.reset()
                     inception.reset()
-                    # FID.update_fake(samples)
-                    # upper_loss = FID.compute()
+
                     
                     # do this as it is MNIST, no need for CIFAR-10
                     samples = samples.repeat(1, 3, 1, 1)  # Repeat the channels
@@ -686,10 +613,6 @@ def main(args):
                     inception.update(samples)
                     inception_score, std_inception_score = inception.compute()
         
-                    # print("requires_grad", upper_loss.requires_grad)
-                    # grad_upper = torch.autograd.grad(upper_loss, scheduler.parameters())                
-
-                    # grad_upper = torch.autograd.grad(upper_loss, model_ema.shadow_model.scheduler.parameters())                
         
                     if ZO_type == 'two':
                         param_group = zeroth_order_gradient(params='scheduler', model_ema=model_ema, delta=args.delta, fid=fid, ZO_type = ZO_type)
@@ -736,7 +659,7 @@ def main(args):
                         scheduler.s_tensor.data.clamp_(0,1)
                     if initial == "sigmoid":
                         scheduler.end_tensor.data.clamp_(scheduler.start_tensor + 1e-10, torch.tensor(1e6, dtype=torch.float32).to(device))
-                        scheduler.tau_tensor.data.clamp_(0, 1e6)
+                        scheduler.tau_tensor.data.clamp_(0.1, 1)
                     else:
                         # Clip beta to the range [0, 1]
                         scheduler.betas.data.clamp_(0., 0.999)  # In-place clamping
@@ -750,10 +673,6 @@ def main(args):
                                     f"tau: {scheduler.tau_tensor.data.item():.5f}, "
                                     f"epsilon: {scheduler.s_tensor.data.item():.5f}"
                                 )
-                            # print("start: ", scheduler.start_tensor.data.item(), ". end:", scheduler.end_tensor.data.item(), ". tau:", scheduler.tau_tensor.data.item(), ". epsilon", scheduler.s_tensor.data.item())
-                            # print("end: ", scheduler.end_tensor.data.item())
-                            # print("tau: ", scheduler.tau_tensor.data.item())
-                            # print("s: ", scheduler.s_tensor.data.item())
 
                         else:
                             print("max gradient, ", [max(g) for g in combined_grad])
@@ -763,17 +682,7 @@ def main(args):
                     if global_steps % args.model_ema_steps == 0:
                         # print("update model 2")
                         model_ema.update_parameters(model)
-                        # if initial  == "cosine":
-                        #     print("****check model schedular****")
-                        #     print("start: ", scheduler.start_tensor.data)
-                        #     print("end: ", scheduler.end_tensor.data)
-                        #     print("tau: ", scheduler.tau_tensor.data)
-                        #     print("s: ", scheduler.s_tensor.data)
-                        #     print("****check model_ema schedular****")
-                        #     print("start: ", model_ema.shadow_model.scheduler.start_tensor.data)
-                        #     print("end: ", model_ema.shadow_model.scheduler.end_tensor.data)
-                        #     print("tau: ", model_ema.shadow_model.scheduler.tau_tensor.data)
-                        #     print("s: ", model_ema.shadow_model.scheduler.s_tensor.data)
+
                 else:
                     if global_steps % args.model_ema_steps == 0:
                         # print("update model 1")
@@ -808,32 +717,25 @@ def main(args):
             # torch.save(ckpt, f"results/bilevel/gamma_{args.gamma:.3f}/{args.scheduler}/steps_{global_steps:08d}.pt")
             torch.save(
                 ckpt,
-                f"results/bilevel/gamma_{args.gamma}_gamma_end_{args.gamma_end}_y_loop_{args.inner_loop}_z_loop_{args.inner_loop_z}_initial_epoch_{args.initial_epoch}_epoch_{args.epochs}_lr_beta_{args.lr_beta}/{args.scheduler}/steps_{global_steps:08d}.pt"
+                f"results/bilevel/gamma_{args.gamma}_gamma_end_{args.gamma_end}_y_loop_{args.inner_loop}_z_loop_{args.inner_loop_z}_initial_epoch_{args.initial_epoch}_epoch_{args.epochs}_lr_beta_{args.lr_beta}_lr_{args.lr}_lr_z_{args.lr_z}/{args.scheduler}/steps_{global_steps:08d}.pt"
             )
 
             
             model_ema.shadow_model.eval()
             samples = model_ema.shadow_model.sampling_DDIM_no_grad(args.n_samples, device=device, tau_type = args.tau_type)
             
-            
-            # model.eval()
-            # samples = model.sampling_DDIM_no_grad(args.n_samples, device=device, tau_type = args.tau_type)
-            
+                        
             # FID.clear_fake()
             fid.reset()
             inception.reset()
             
-            # FID.update_fake(samples)
-            # upper_loss = FID.compute()
-            # save_image(samples, f"results/bilevel/gamma_{args.gamma:.3f}/{args.scheduler}/steps_{global_steps:08d}.png", nrow=int(math.sqrt(args.n_samples)))
 
             save_image(
                 samples,
-                f"results/bilevel/gamma_{args.gamma}_gamma_end_{args.gamma_end}_y_loop_{args.inner_loop}_z_loop_{args.inner_loop_z}_initial_epoch_{args.initial_epoch}_epoch_{args.epochs}_lr_beta_{args.lr_beta}/{args.scheduler}/steps_{global_steps:08d}.png",
+                f"results/bilevel/gamma_{args.gamma}_gamma_end_{args.gamma_end}_y_loop_{args.inner_loop}_z_loop_{args.inner_loop_z}_initial_epoch_{args.initial_epoch}_epoch_{args.epochs}_lr_beta_{args.lr_beta}_lr_{args.lr}_lr_z_{args.lr_z}/{args.scheduler}/steps_{global_steps:08d}.png",
                 nrow=int(math.sqrt(args.n_samples))
             )
 
-            # print("Final FID for DDIM:", upper_loss)
             
             # do this as it is MNIST, no need for CIFAR-10
             samples = samples.repeat(1, 3, 1, 1)  # Repeat the channels
@@ -848,30 +750,10 @@ def main(args):
 
             print("Upper loss (FID differentiable): ", upper_loss, "torch FID: ", fid_score, "torch IS: ", inception_score)
 
-            # model_ema_single.eval()
-            # samples = model_ema_single.module.sampling_DDIM(args.n_samples, device=device, tau_type = args.tau_type)
-            # FID.clear_fake()
-            # fid.reset()
-            # FID.update_fake(samples)
-            # upper_loss = FID.compute()
-            # samples = samples.repeat(1, 3, 1, 1)  # Repeat the channels
-            # samples= (samples + 1) / 2  # Scale values from [-1, 1] to [0, 1]
-            # fid.update(samples, real=False)
-    
-            # fid_score = fid.compute()
-    
-            # print("Single: Upper loss (FID differentiable): ", upper_loss, "torch FID: ", fid_score)
     
             # Write the iteration and scores to the CSV
             writer.writerow([epoch, step, upper_loss, fid_score, inception_score, scheduler.start_tensor.data.item(),scheduler.end_tensor.data.item(),scheduler.tau_tensor.data.item(),scheduler.s_tensor.data.item()])
-            # f.flush()
-            # except:
-            #     ckpt = {
-            #         "model": model.state_dict(),
-            #     }
-            #     os.makedirs("results", exist_ok=True)
-            #     torch.save(ckpt, f"results/bilevel/gamma_{args.gamma:.3f}/steps_{global_steps:08d}.pt")
-            #     print("No evaluation in initial stages")
+
             
         end_time = time.time()
         execution_time = end_time - start_time
