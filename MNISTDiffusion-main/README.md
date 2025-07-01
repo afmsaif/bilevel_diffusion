@@ -24,6 +24,9 @@ Feel free to tuning training parameters, type `python train_mnist.py -h` to get 
 For train_mnist.py, tune hyperparameter tau first and then start, end, and epsilon. 
 For train_mnist_bilevel.py, tune gamma and learning rates for beta, and initial epoch (without learning hyperparmater) and epochs. 
 
+## Reference 
+
+
 ## Citation
 If you find our work interesting, please consider citing this paper:
 ```
