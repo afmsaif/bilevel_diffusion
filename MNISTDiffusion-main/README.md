@@ -18,9 +18,6 @@ For train_mnist.py, tune hyperparameter tau first and then start, end, and epsil
 For train_mnist_bilevel.py, tune gamma and learning rates for beta, and initial epoch (without learning hyperparmater) and epochs. 
 
 ## Reference
-A neat blog explains how diffusion model works: https://lilianweng.github.io/posts/2021-07-11-diffusion-models/
 
-The Denoising Diffusion Probabilistic Models paper: https://arxiv.org/pdf/2006.11239.pdf 
-
-A pytorch version of DDPM: https://github.com/lucidrains/denoising-diffusion-pytorch
+This codebase is built upon a lightweight diffusion model trained on MNIST: https://github.com/bot66/MNISTDiffusion
 
