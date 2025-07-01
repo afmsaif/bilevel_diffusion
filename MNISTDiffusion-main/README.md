@@ -14,7 +14,7 @@ python train_mnist_bilevel_ZO.py --inner_loop 10 --inner_loop_z 1 --gamma 1 --ga
 ```
 Feel free to tuning training parameters, type `python train_mnist.py -h` to get help message of arguments.
 
-For train_mnist_grid_search.py, tune hyperparameter tau first and then start, end, and epsilon. Implement Bayesian search for tuning tau. 
+For train_mnist.py, tune hyperparameter tau first and then start, end, and epsilon. 
 For train_mnist_bilevel.py, tune gamma and learning rates for beta, and initial epoch (without learning hyperparmater) and epochs. 
 
 ## Reference
