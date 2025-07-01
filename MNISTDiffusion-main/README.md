@@ -6,7 +6,7 @@ This is the codebase for bilevel hyperparameter optimization for noise scheduler
 
 ## Introduction
 
-We optimize the noise scheduler jointly with the score network by formulating the task as a bilevel optimization problem. Given a fixed noise scheduler, we first generate forward samples and train the score network to predict the corresponding backward samples under the same scheduler. To update the noise scheduler, we approximate the gradient of the FID score of the generated images using the gradient of the penalty objective from the bilevel formulation. To reduce memory overhead, we employ a zeroth-order approximation for gradient estimation. This approach enables the model to automatically learn an optimal noise scheduler that minimizes the FID score. Finally, we evaluate the model using both FID and Inception Score (IS). 
+We optimize the noise scheduler jointly with the score network by formulating the task as a bilevel optimization problem. Given a fixed noise scheduler, we first generate forward samples and train the score network to predict the corresponding backward samples under the same scheduler. To update the noise scheduler, we approximate the gradient of the FID score of the generated images using the gradient of the penalty objective from the bilevel formulation. To reduce memory overhead, we employ a zeroth-order approximation for gradient estimation, avoiding backpropagation through the backward process. This approach enables the model to automatically learn an optimal noise scheduler that minimizes the FID score. Finally, we evaluate the model using both FID and Inception Score (IS). 
 
 ## Training
 Install packages
