@@ -24,7 +24,18 @@ Feel free to tuning training parameters, type `python train_mnist.py -h` to get 
 For train_mnist.py, tune hyperparameter tau first and then start, end, and epsilon. 
 For train_mnist_bilevel.py, tune gamma and learning rates for beta, and initial epoch (without learning hyperparmater) and epochs. 
 
-## Reference
+## Citation
+If you find our work interesting, please consider citing this paper:
+```
+@inproceedings{xiao2025first,
+  title={A First-order Generative Bilevel Optimization Framework for Diffusion Models},
+  author={Xiao, Quan and Yuan, Hui and Saif, AFM and Liu, Gaowen and Kompella, Ramana and Wang, Mengdi and Chen, Tianyi},
+  booktitle={Proceedings of the 42nd International Conference on Machine Learning (ICML)},
+  year={2025}
+}
+```
+
+
 
 
 
