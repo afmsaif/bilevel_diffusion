@@ -8,7 +8,8 @@ pip install -r requirements.txt
 ```
 Start default setting training 
 ```bash
-python train_mnist.py 
+python train_mnist.py
+python train_mnist_bayesian.py 
 python train_mnist_bilevel_ZO.py --inner_loop 10 --inner_loop_z 1 --gamma 1 --gamma_end 1 --lr_beta 0.05 0.05 1 0.05 --initial_epoch 2 --epochs 3
 ```
 Feel free to tuning training parameters, type `python train_mnist.py -h` to get help message of arguments.
