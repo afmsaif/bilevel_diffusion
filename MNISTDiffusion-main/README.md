@@ -1,4 +1,4 @@
-# MNIST Diffusion
+# Noise optimizatino for training MNIST Diffusion
 ![60 epochs training from scratch](assets/demo.gif "60 epochs training from scratch")
 
 ## Training
