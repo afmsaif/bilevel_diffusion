@@ -1,6 +1,13 @@
 # Noise scheduler optimization for training MNIST diffusion
 ![60 epochs training from scratch](assets/demo.gif "60 epochs training from scratch")
 
+This is the codebase for bilevel hyperparameter optimization for noise scheduler in diffusion model training. (see [paper](https://arxiv.org/abs/2502.08808)). This implementation is built upon a lightweight diffusion model trained on MNIST: https://github.com/bot66/MNISTDiffusion.
+
+
+## Introduction
+
+We optimize the noise scheduler jointly with the score network by formulating the task as a bilevel optimization problem. Given a fixed noise scheduler, we first generate forward samples and train the score network to predict the corresponding backward samples under the same scheduler. To update the noise scheduler, we approximate the gradient of the FID score of the generated images using the gradient of the penalty objective from the bilevel formulation. To reduce memory overhead, we employ a zeroth-order approximation for gradient estimation. This approach enables the model to automatically learn an optimal noise scheduler that minimizes the FID score. Finally, we evaluate the model using both FID and Inception Score (IS). 
+
 ## Training
 Install packages
 ```bash
@@ -19,5 +26,5 @@ For train_mnist_bilevel.py, tune gamma and learning rates for beta, and initial 
 
 ## Reference
 
-This codebase is built upon a lightweight diffusion model trained on MNIST: https://github.com/bot66/MNISTDiffusion
+
 
