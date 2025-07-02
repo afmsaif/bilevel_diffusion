@@ -148,10 +148,10 @@ def parse_args():
     parser.add_argument('--lr_z',type = float ,default=0.001)
     parser.add_argument('--lr_beta',type = float, nargs=4,default=[0.01, 0.01, 0.1, 0.001])
     parser.add_argument('--batch_size',type = int ,default=128)    
-    parser.add_argument('--epochs',type = int,default=5)
+    parser.add_argument('--epochs',type = int,default=3)
     parser.add_argument('--inner_loop',type = int,help = 'steps of U-Net training',default=1)
     parser.add_argument('--inner_loop_z',type = int,help = 'steps z update',default=1)
-    parser.add_argument('--initial_epoch',type = int,help = 'initial steps of U-Net training',default=50)
+    parser.add_argument('--initial_epoch',type = int,help = 'initial steps of U-Net training',default=2)
     parser.add_argument('--gamma', type=float, default=1, help="penalty constant starting point")
     parser.add_argument('--gamma_end', type=float, default=1, help="penalty constant end point")
     parser.add_argument('--delta', type=float, default=0.01, help="perturbation")
@@ -690,16 +690,29 @@ def main(args):
 
                 if step % args.log_freq == 0:
                     
+                    mem_allocated = torch.cuda.memory_allocated(device=None)   # memory currently allocated by tensors
+                    mem_max  = torch.cuda.max_memory_allocated(device=None)    # total memory reserved by PyTorch’s allocator
                     
+                    # Convert to megabytes
+                    mem_allocated_mb = mem_allocated / (1024 ** 2)
+                    mem_max_mb  = mem_max  / (1024 ** 2)
                     
                     if epoch>=args.initial_epoch:
-                        print(f"Epoch [{epoch+1}/{args.epochs}], Step [{step}/{len(train_dataloader)}], "
-                                  f"Lower Loss Z: {lower_loss_z.item():.5f}, Upper Loss: {upper_loss.item():.5f}, torch FID: {fid_score.item():.5f}, torch IS: {inception_score.item():.5f}, Lower Loss y: {lower_loss_y.item():.5f}, Gamma: {gamma_linear:.5f}")
+                        # print(f"Epoch [{epoch+1}/{args.epochs}], Step [{step}/{len(train_dataloader)}], "
+                        #           f"Lower Loss Z: {lower_loss_z.item():.5f}, Upper Loss: {upper_loss.item():.5f}, torch FID: {fid_score.item():.5f}, torch IS: {inception_score.item():.5f}, Lower Loss y: {lower_loss_y.item():.5f}, Gamma: {gamma_linear:.5f}")
+                        print((
+                            f"Epoch [{epoch+1}/{args.epochs}], Step [{step}/{len(train_dataloader)}], "
+                            f"Lower Loss Z: {lower_loss_z.item():.5f}, Upper Loss: {upper_loss.item():.5f}, "
+                            f"torch FID: {fid_score.item():.5f}, torch IS: {inception_score.item():.5f}, "
+                            f"Lower Loss y: {lower_loss_y.item():.5f}, Gamma: {gamma_linear:.5f}, "
+                            f"MemAlloc: {mem_allocated_mb:.2f} MB, MemMax: {mem_max_mb:.2f} MB"
+                        ))
                         writer.writerow([epoch, step, upper_loss, fid_score, inception_score, scheduler.start_tensor.data.item(),scheduler.end_tensor.data.item(),scheduler.tau_tensor.data.item(),scheduler.s_tensor.data.item()])
 
                     else:
                         print(f"Epoch [{epoch+1}/{args.epochs}], Step [{step}/{len(train_dataloader)}], "
-                                  f"Lower Loss y: {lower_loss_y.item():.5f}, Gamma: {gamma_linear:.5f}")
+                                  f"Lower Loss y: {lower_loss_y.item():.5f}, Gamma: {gamma_linear:.5f},"
+                                  f"MemAlloc: {mem_allocated_mb:.2f} MB, MemMax: {mem_max_mb:.2f} MB")
                         writer.writerow([epoch, step, "", "", "", scheduler.start_tensor.data.item(),scheduler.end_tensor.data.item(),scheduler.tau_tensor.data.item(),scheduler.s_tensor.data.item()])
 
 
@@ -745,7 +758,7 @@ def main(args):
             inception.update(samples)
             inception_score, std_inception_score = inception.compute()
 
-            print("Upper loss (FID differentiable): ", upper_loss, "torch FID: ", fid_score, "torch IS: ", inception_score)
+            print("Upper loss (torch FID): ", upper_loss, "torch IS: ", inception_score)
 
     
             # Write the iteration and scores to the CSV
