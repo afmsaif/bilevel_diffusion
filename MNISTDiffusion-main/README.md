@@ -18,18 +18,30 @@ Install packages
 ```bash
 pip install -r requirements.txt
 ```
-Start default setting training 
+Start training 
 ```bash
 python train_mnist.py
 python train_mnist_bayesian.py 
 python train_mnist_bilevel_ZO.py --inner_loop 10 --inner_loop_z 1 --gamma 1 --gamma_end 1 --lr_beta 0.05 0.05 1 0.05 --initial_epoch 2 --epochs 3
 ```
+## Script descriptions and tuning guidelines
+
+ `train_mnist.py`
+Trains a diffusion model on MNIST using a **fixed noise schedule**. This serves as the **baseline training setup**.
+
+ `train_mnist_bayesian.py`
+Applies **Bayesian hyperparameter optimization** to improve the training dynamics and performance of the diffusion model.
+
+ `train_mnist_bilevel_ZO.py`
+Implements **our proposed bilevel with zero-order optimization (ZO) approach**, which learns the noise schedule automatically by solving a **bilevel optimization problem** with ZO gradient estimator.
+
+
 Feel free to tuning training parameters, type `python train_mnist.py -h` to get help message of arguments.
 
-For train_mnist.py, tune hyperparameter tau first and then start, end, and epsilon. 
-For train_mnist_bilevel_ZO.py, tune gamma and learning rates for beta, and initial epoch (without learning hyperparmater) and epochs. 
+For `train_mnist.py`, tune hyperparameter tau first and then start, end, and epsilon. 
 
-## Reference 
+For `train_mnist_bilevel_ZO.py`, tune gamma and learning rates for beta, and initial epoch (without learning hyperparmater) and epochs. 
+
 
 
 ## Citation
@@ -38,7 +50,7 @@ If you find our work interesting, please consider citing this paper:
 @inproceedings{xiao2025first,
   title={A First-order Generative Bilevel Optimization Framework for Diffusion Models},
   author={Xiao, Quan and Yuan, Hui and Saif, AFM and Liu, Gaowen and Kompella, Ramana and Wang, Mengdi and Chen, Tianyi},
-  booktitle={Proceedings of the 42nd International Conference on Machine Learning (ICML)},
+  booktitle={Proceedings of the 42nd International Conference on Machine Learning},
   year={2025}
 }
 ```
