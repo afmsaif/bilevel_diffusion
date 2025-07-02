@@ -33,7 +33,7 @@ Trains a diffusion model on MNIST using a **fixed noise schedule**. This serves 
 Applies **Bayesian hyperparameter optimization** to improve the training dynamics and performance of the diffusion model.
 
  `train_mnist_bilevel_ZO.py`
-Implements **our proposed bilevel with zero-order optimization (ZO) approach**, which learns the noise schedule automatically by solving a **bilevel optimization problem** with ZO gradient estimator.
+Implements **our proposed bilevel with zero-order optimization (ZO) approach**, which learns the noise schedule automatically by solving a bilevel optimization problem with ZO gradient estimator.
 
 
 Feel free to tuning training parameters, type `python train_mnist.py -h` to get help message of arguments.
