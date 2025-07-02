@@ -23,7 +23,6 @@ import os
 import math
 import argparse
 from copy import deepcopy
-from evaluation import FIDCalculator
 import csv
 import time
 
@@ -339,8 +338,6 @@ def main(args):
         image = image.to(device)
 
 
-        # # differntiable FID needs input scale at [-1,1]
-        # FID.update_real(image)
 
         # do this as it is MNIST, no need for CIFAR-10
         image = image.repeat(1, 3, 1, 1)  # Repeat the channels
