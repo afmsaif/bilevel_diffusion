@@ -1,7 +1,7 @@
 # Noise scheduler optimization for training MNIST diffusion
 ![60 epochs training from scratch](assets/demo.gif "60 epochs training from scratch")
 
-This is the codebase for bilevel hyperparameter optimization for noise scheduler in diffusion model training. (see [paper](https://arxiv.org/abs/2502.08808)). This implementation is built upon a lightweight diffusion model trained on MNIST: https://github.com/bot66/MNISTDiffusion.
+This is the codebase for bilevel hyperparameter optimization for noise scheduler in diffusion model training (see [paper](https://arxiv.org/abs/2502.08808)). This implementation is built upon a lightweight diffusion model trained on MNIST: https://github.com/bot66/MNISTDiffusion.
 
 
 ## Introduction
