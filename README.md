@@ -2,8 +2,7 @@
 
 This repository contains the code to reproduce all experiments presented in our ICML 2025 paper:
 
-> *A First-order Generative Bilevel Optimization Framework for Diffusion Models*
-
+> *A First-order Generative Bilevel Optimization Framework for Diffusion Models*  
 > Quan Xiao, Hui Yuan, A. F. M. Saif, Gaowen Liu, Ramana Kompella, Mengdi Wang, Tianyi Chen
 
 
