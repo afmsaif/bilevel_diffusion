@@ -78,4 +78,9 @@ $$
 
 If you use this code, please cite:
 
-> Quan Xiao, Hui Yuan, A. F. M. Saif, Gaowen Liu, Ramana Kompella, Mengdi Wang, Tianyi Chen. "A First-order Generative Bilevel Optimization Framework for Diffusion Models." ICML 2025.
+> @inproceedings{xiao2025first,
+  title={A First-order Generative Bilevel Optimization Framework for Diffusion Models},
+  author={Xiao, Quan and Yuan, Hui and Saif, AFM and Liu, Gaowen and Kompella, Ramana and Wang, Mengdi and Chen, Tianyi},
+  booktitle={Proceedings of the 42nd International Conference on Machine Learning},
+  year={2025}.}
+
