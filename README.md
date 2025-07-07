@@ -7,8 +7,8 @@ This repository contains the code to reproduce all experiments presented in our 
 
 
 <p float="left">
-  <img src="https://github.com/afmsaif/bilevel_diffusion/blob/main/MNISTDiffusion-main/docs/exp1-2.png" width="50%" />
-  <img src="https://github.com/afmsaif/bilevel_diffusion/blob/main/MNISTDiffusion-main/docs/exp2.png" width="50%" />
+  <img src="https://github.com/afmsaif/bilevel_diffusion/blob/main/MNISTDiffusion-main/docs/exp1-2.png" width="45%" />
+  <img src="https://github.com/afmsaif/bilevel_diffusion/blob/main/MNISTDiffusion-main/docs/exp2.png" width="45%" />
 </p>
 
 ---
