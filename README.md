@@ -1,6 +1,24 @@
 # A First-order Generative Bilevel Optimization Framework for Diffusion Models
 
-This repository contains the code to reproduce all experiments presented in our ICML 2025 paper:
+## Introduction
+
+Diffusion models have emerged as a leading class of generative models, capable of synthesizing high-fidelity images by reversing a gradual noising process. Despite their empirical success, tuning diffusion samplers for specific objectives—such as aligning outputs with downstream reward functions or designing optimal noise schedules—remains an open challenge. Traditional approaches rely on manual heuristics or multi-stage training, which can be unstable and inefficient.
+
+In this work, we introduce a unified bilevel optimization framework that directly integrates generative sampling with task-specific objectives. By formulating diffusion sampling as a lower-level problem with entropic regularization and treating hyperparameters (e.g., entropy strength or noise schedule) as upper-level variables, our approach provides principled gradients for fine-tuning. Specifically:
+
+1. **Reward Fine-Tuning (Section 3.1):** We propose a bilevel scheme for adapting sampling trajectories to maximize arbitrary reward functions (e.g., CLIP-based aesthetic scores), learning an optimal entropy parameter that balances fidelity with diversity.
+
+2. **Noise Scheduling (Section 3.2):** We derive first-order updates for continuous noise schedules on MNIST, enabling automatic discovery of schedules that improve generative quality under a fixed budget of reverse diffusion steps.
+
+Our contributions are threefold:
+
+1. A general bilevel formulation for diffusion-based generative modeling, compatible with both score-based SDEs and discrete denoising flows.  
+2. Scalable, Monte Carlo estimators for upper-level gradients, allowing end-to-end fine-tuning without nested optimization loops.  
+3. Empirical validation on aesthetic reward tuning and noise schedule discovery, demonstrating improved sample quality and reduced generation cost.  
+
+This repository provides modular implementations for both tasks, facilitating reproducibility and extension to new datasets and reward functions.
+
+This repository contains the code to reproduce all experiments presented in our ICML 2025 paper:
 
 > *A First-order Generative Bilevel Optimization Framework for Diffusion Models*  
 > Quan Xiao, Hui Yuan, A. F. M. Saif, Gaowen Liu, Ramana Kompella, Mengdi Wang, Tianyi Chen
