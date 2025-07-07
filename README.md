@@ -5,6 +5,12 @@ This repository contains the code to reproduce all experiments presented in our 
 > *A First-order Generative Bilevel Optimization Framework for Diffusion Models*
 > Quan Xiao, Hui Yuan, A. F. M. Saif, Gaowen Liu, Ramana Kompella, Mengdi Wang, Tianyi Chen
 
+
+<p float="left">
+  <img src="https://github.com/afmsaif/bilevel_diffusion/blob/main/MNISTDiffusion-main/docs/exp1-2.png" width="45%" />
+  <img src="https://github.com/afmsaif/bilevel_diffusion/blob/main/MNISTDiffusion-main/docs/exp2.png" width="45%" />
+</p>
+
 ---
 
 ## 📂 Repository Structure
