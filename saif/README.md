@@ -59,13 +59,9 @@ where:
 
 Section 3.1 formulates reward fine-tuning as a bilevel problem:
 
-$$
-\min_{\lambda>0,\,p\in S(\lambda)} \; f(\lambda,p) = - \mathbb{E}_{u\sim p}[r_1(u)]
-\quad\text{s.t.}\quad
-S(\lambda)=\arg\min_{p'}\left\{ -\mathbb{E}_{u\sim p'}[r_2(u)] + \lambda \,\mathrm{KL}(p'\|p_{\mathrm{data}})\right\}
-$$
+<pre> Minimize over λ ∈ ℝ₊ and p ∈ 𝒮(λ): f(λ, p) := –E_{u ~ p}[r₁(u)] Subject to: 𝒮(λ) = argmin_{p′ ∈ 𝒫} { –E_{u ~ p′}[r₂(u)] + λ · KL(p′ || p_data) } </pre>
 
-* **Lower level** adjusts sampling via guided backward SDE (Algorithm 5) with reward $r_2$.
+* **Lower level** adjusts sampling via guided backward SDE (Algorithm 5) with entropy regularized reward $r_2$.
 * **Upper level** updates $\lambda$ by Monte Carlo estimation of the closed-form gradient (Eq. 13) and projected gradient descent (Algorithm 2).
 
 ### 📈 Output
