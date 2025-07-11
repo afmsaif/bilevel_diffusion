@@ -27,7 +27,7 @@ python train_mnist_bilevel_ZO.py --inner_loop 10 --inner_loop_z 1 --gamma 1 --ga
 ## Script descriptions and tuning guidelines
 
  `train_mnist.py`
-Trains a diffusion model on MNIST using a **fixed noise schedule**. This serves as the **baseline training setup**.
+Trains a diffusion model on MNIST using a **fixed noise schedule**. This serves as the **baseline training algorithm**.
 
  `train_mnist_bayesian.py`
 Applies **Bayesian hyperparameter optimization** to improve the training dynamics and performance of the diffusion model.
