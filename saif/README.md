@@ -74,9 +74,12 @@ Section 3.1 formulates reward fine-tuning as a bilevel problem:
 
 If you use this code, please cite:
 
-> @inproceedings{xiao2025first,
+```
+@inproceedings{xiao2025first,
   title={A First-order Generative Bilevel Optimization Framework for Diffusion Models},
   author={Xiao, Quan and Yuan, Hui and Saif, AFM and Liu, Gaowen and Kompella, Ramana and Wang, Mengdi and Chen, Tianyi},
   booktitle={Proceedings of the 42nd International Conference on Machine Learning},
-  year={2025}.}
+  year={2025}
+}
+```
 
