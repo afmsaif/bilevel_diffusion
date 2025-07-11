@@ -65,7 +65,7 @@ Dependencies include:
 Reproduce the bilevel reward fine-tuning from Section 3.1:
 
 ```bash
-cd saif
+cd entropy_fine-tuning
 python scripts/reward_finetune.py \
   --config configs/reward_config.yaml \
   --pretrained_model_path "CompVis/stable-diffusion-v1-5" \
@@ -91,7 +91,7 @@ Outputs are stored under `saif/outputs/reward_finetune`:
 Run the bilevel noise schedule optimization for Section 3.2 on the MNIST dataset:
 
 ```bash
-cd MNISTDiff
+cd noise_schedule
 python train_mnist_bilevel_ZO.py \
   --inner_loop 10 \
   --inner_loop_z 1 \
