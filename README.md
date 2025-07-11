@@ -29,9 +29,10 @@ This repository provides modular implementations for both tasks and includes the
 │   ├── train_mnist_bayesian.py/         
 │   └── train_mnist_bilevel_ZO.py/   
 ├── entropy_fine-tuning/                 # Section 3.1: Reward fine-tuning modules
-│   ├── scripts/          # Entry-point for reward fine-tuning
-│   ├── configs/          # Hyperparameter YAML files
-│   └── outputs/          # Learned λ, samples, and logs
+│   ├── main.py      # Training for bilevel reward fine-tuning
+│   ├── reward_config.yaml      # Default hyperparameters for Section 3.1
+│   ├── scorer_bi.py     # Reward functions
+    └── gradguided_sdpipeline.py/        # Checkpoints and generated samples
 ├── requirements.txt      # Python dependencies
 └── README.md             # This overview
 ```
