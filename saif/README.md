@@ -1,6 +1,6 @@
 ## Reward Fine-Tuning in Diffusion Models (Section 3.1)
 
-This directory implements the inference-only bilevel approach for reward fine-tuning pre-trained diffusion models as described in Section 3.1 of **"A First-order Generative Bilevel Optimization Framework for Diffusion Models"**.
+This directory implements the inference-only bilevel approach for reward fine-tuning in diffusion models as described in Section 3.1 of **"A First-order Generative Bilevel Optimization Framework for Diffusion Models"**.
 
 ### 📦 Requirements
 
