@@ -24,11 +24,11 @@ This repository provides modular implementations for both tasks and includes the
 ## 📂 Repository Structure
 
 ```text
-├── MNISTDiff/            # Section 3.2: Noise scheduling experiments on MNIST
+├── noise_schedule/            # Section 3.2: Noise scheduling experiments on MNIST
 │   ├── train_mnist.py/          
 │   ├── train_mnist_bayesian.py/         
 │   └── train_mnist_bilevel_ZO.py/   
-├── saif/                 # Section 3.1: Reward fine-tuning modules
+├── entropy_fine-tuning/                 # Section 3.1: Reward fine-tuning modules
 │   ├── scripts/          # Entry-point for reward fine-tuning
 │   ├── configs/          # Hyperparameter YAML files
 │   └── outputs/          # Learned λ, samples, and logs
@@ -60,7 +60,7 @@ Dependencies include:
 
 ## ⚙️ Usage
 
-### Section 3.1: Reward Fine-Tuning (`saif`)
+### Section 3.1: Reward Fine-Tuning (`entropy_fine-tuning`)
 
 Reproduce the bilevel reward fine-tuning from Section 3.1:
 
@@ -86,7 +86,7 @@ Outputs are stored under `saif/outputs/reward_finetune`:
 
 ---
 
-### Section 3.2: Noise Scheduling (`MNISTDiff`)
+### Section 3.2: Noise Scheduling (`noise_schedule`)
 
 Run the bilevel noise schedule optimization for Section 3.2 on the MNIST dataset:
 
