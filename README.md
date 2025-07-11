@@ -15,8 +15,8 @@ This repository provides modular implementations for both tasks and includes the
 
 
 <p float="left">
-  <img src="https://github.com/afmsaif/bilevel_diffusion/blob/main/MNISTDiffusion-main/docs/exp1-2.png" width="45%" />
-  <img src="https://github.com/afmsaif/bilevel_diffusion/blob/main/MNISTDiffusion-main/docs/exp2.png" width="45%" />
+  <img src="https://github.com/afmsaif/bilevel_diffusion/blob/main/noise_schedule/docs/exp1-2.png" width="45%" />
+  <img src="https://github.com/afmsaif/bilevel_diffusion/blob/main/noise_schedule/docs/exp2.png" width="45%" />
 </p>
 
 ---
